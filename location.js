@@ -51,6 +51,8 @@ function init() {
 
   });
 
+  loadFromShareUrl();
+
   displayLocations(getSavedLocations());
 
   $('#button_clear').click(function() {
@@ -112,6 +114,44 @@ function displayLocations(savedLocations) {
       $("<li>").append(location.name + '  ').append(
         $("<a>").data('index', index).attr('class', 'remove').attr('href', '#').append('remove')));
   });
+
+  updateShareURL(savedLocations);
+}
+
+function updateShareURL(savedLocations) {
+  var locationsArray = savedLocations.map(function(location) {
+    return [location.name, location.location.lat, location.location.lng];
+  });
+
+  var encoded = Base64.encodeURI(JSON.stringify(locationsArray));
+  console.log(encoded);
+  var shareUrl = "/locations.html#" + encoded;
+  $("#share_link").attr("href", shareUrl);
+}
+
+function loadFromShareUrl() {
+  if(window.location.hash) {
+    var load = confirm("do you want to load from this URL?");
+    if (load) {
+      try {
+        var decoded = Base64.decode(window.location.hash);
+        var locationArray = JSON.parse(decoded);
+        var savedLocations = locationArray.map(function(location) {
+          return {
+            name: location[0],
+            location: {
+              lat: location[1],
+              lng: location[2]
+            }
+          }
+        });
+        saveSavedLocations(savedLocations);
+        displayLocations(savedLocations);
+      } catch(error) {
+
+      }
+    }
+  }
 }
 
 $(function() {
