@@ -11,11 +11,22 @@ var autocompleteOptions = {
   strictBounds: true,
 }
 
+function arrayMove(arr, old_index, new_index) {
+    if (new_index >= arr.length) {
+        var k = new_index - arr.length + 1;
+        while (k--) {
+            arr.push(undefined);
+        }
+    }
+    arr.splice(new_index, 0, arr.splice(old_index, 1)[0]);
+    return arr; // for testing
+};
+
 
 function init() {
   map = new google.maps.Map(document.getElementById('map'), {zoom: 16, center: startPoint});
 
-  var marker = new google.maps.Marker({
+  marker = new google.maps.Marker({
           map: map,
           anchorPoint: startPoint,
           draggable:true,
@@ -28,7 +39,6 @@ function init() {
     marker.setVisible(false);
 
     place = autocomplete.getPlace();
-    console.log(place);
 
     if (!place.geometry) {
       // User entered the name of a Place that was not suggested and
@@ -36,9 +46,6 @@ function init() {
       window.alert("No details available for input: '" + place.name + "'");
       return;
     }
-
-    console.log(place.geometry.location.lat());
-    console.log(place.geometry.location.lng());
 
     if (place.geometry.viewport) {
       map.fitBounds(place.geometry.viewport);
@@ -65,27 +72,95 @@ function init() {
 
   $('#button_add').click(function() {
     var savedLocations = getSavedLocations();
-    if (savedLocations.length === 0) {
-      savedLocations.push({name: 'Start Point', location: startPoint});
-    }
+
     savedLocations.push({name: place.name, location: {lat: place.geometry.location.lat(), lng: place.geometry.location.lng()}});
+
+    saveSavedLocations(savedLocations);
+    displayLocations(savedLocations);
+
+    $("#address_input").val('');
+  });
+
+  $('#button_marker').click(function() {
+    var savedLocations = getSavedLocations();
+
+    var name = $("#address_input").val();
+
+    savedLocations.push({name: name, location: {lat: marker.getPosition().lat(), lng: marker.getPosition().lng()}});
+
+    saveSavedLocations(savedLocations);
+    displayLocations(savedLocations);
+
+    $("#address_input").val('');
+  });
+
+  $('#button_lat_lng').click(function() {
+    var savedLocations = getSavedLocations();
+
+    var data = $("#address_input").val().split(',');
+    var name = data[0];
+    var lat = parseFloat(data[1]);
+    var lng = parseFloat(data[2]);
+
+    savedLocations.push({name: name, location: {lat: lat, lng: lng}});
+
+    saveSavedLocations(savedLocations);
+    displayLocations(savedLocations);
+
+    $("#address_input").val('');
+  });
+
+  function addCurrentPosition(position) {
+    var savedLocations = getSavedLocations();
+
+    var name = 'Current Location';
+    var lat = position.coords.latitude;
+    var lng = position.coords.longitude;
+
+    savedLocations.push({name: name, location: {lat: lat, lng: lng}});
+
+    saveSavedLocations(savedLocations);
+    displayLocations(savedLocations);
+
+    $("#address_input").val('');
+  }
+
+  $('#button_current_location').click(function() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(addCurrentPosition);
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  });
+
+  $('#locations').on('click', 'a', function(e) {
+    e.preventDefault();
+
+    var targetLink = $(e.target);
+    var index = targetLink.data('index');
+    var savedLocations = getSavedLocations();
+
+    if (targetLink.hasClass('remove')) {
+      savedLocations.splice(index, 1);
+    } else if (targetLink.hasClass('start')) {
+      arrayMove(savedLocations, index, 0);
+    } else if (targetLink.hasClass('end')) {
+      arrayMove(savedLocations, index, savedLocations.length - 1);
+    }
 
     saveSavedLocations(savedLocations);
     displayLocations(savedLocations);
   });
 
-  $('#locations').on('click', 'a', function(e) {
-    e.preventDefault();
-    console.log(e.target)
-    var removeLink = $(e.target);
-    var index = removeLink.data('index');
-    console.log(index);
+  var clipboard = new ClipboardJS('#share_link', {
+    text: function(trigger) {
+        return $(trigger).data('href');
+    }
+  });
 
-    var savedLocations = getSavedLocations();
-    savedLocations.splice(index, 1);
-    saveSavedLocations(savedLocations);
-    displayLocations(savedLocations);
-  })
+  clipboard.on('success', function(e) {
+      alert("Copied to your clipboard");
+  });
 }
 
 function saveSavedLocations(savedLocations) {
@@ -110,9 +185,13 @@ function displayLocations(savedLocations) {
   var $locations = $("#locations");
   $locations.empty();
   savedLocations.forEach(function(location, index) {
-    $locations.append(
-      $("<li>").append(location.name + '  ').append(
-        $("<a>").data('index', index).attr('class', 'remove').attr('href', '#').append('remove')));
+    var $li = $("<li>").attr('class', 'my-2').append(location.name + '<br>');
+    $li.append($("<a>").data('index', index).attr('class', 'remove').attr('href', '#').append('remove'));
+    $li.append('&nbsp;&nbsp;&nbsp;');
+    $li.append($("<a>").data('index', index).attr('class', 'start text-success').attr('href', '#').append('start'));
+    $li.append('&nbsp;&nbsp;&nbsp;');
+    $li.append($("<a>").data('index', index).attr('class', 'end text-danger').attr('href', '#').append('end'));
+    $locations.append($li);
   });
 
   updateShareURL(savedLocations);
@@ -122,21 +201,25 @@ function updateShareURL(savedLocations) {
   var locationsArray = savedLocations.map(function(location) {
     return [location.name, location.location.lat, location.location.lng];
   });
+  var compressed = LZString.compressToEncodedURIComponent(JSON.stringify(locationsArray));
 
-  var encoded = Base64.encodeURI(JSON.stringify(locationsArray));
-  console.log(encoded);
-  var shareUrl = "/locations.html#" + encoded;
-  $("#share_link").attr("href", shareUrl);
+  var shareUrl = window.location.href + (window.location.href.endsWith("#") ? "" : "#") + compressed;
+  $("#share_link").data("href", shareUrl);
 }
+
+
 
 function loadFromShareUrl() {
   if(window.location.hash) {
     var load = confirm("do you want to load from this URL?");
     if (load) {
       try {
-        var decoded = Base64.decode(window.location.hash);
+        var decoded = LZString.decompressFromEncodedURIComponent(window.location.hash.substr(1));
+        console.log(decoded)
         var locationArray = JSON.parse(decoded);
+        console.log(locationArray)
         var savedLocations = locationArray.map(function(location) {
+          console.log(location);
           return {
             name: location[0],
             location: {
@@ -145,6 +228,7 @@ function loadFromShareUrl() {
             }
           }
         });
+        console.log(savedLocations);
         saveSavedLocations(savedLocations);
         displayLocations(savedLocations);
       } catch(error) {
@@ -152,6 +236,7 @@ function loadFromShareUrl() {
       }
     }
   }
+  window.location.hash = '';
 }
 
 $(function() {
