@@ -7,28 +7,10 @@ var directionsDisplay;
 var bounds = new google.maps.LatLngBounds({lat: 38.6663272841066, lng: -77.69550512656093}, {lat: 39.13976204677378, lng: -76.43207739218593})
 var startPoint = {lat: 38.903178, lng: -77.066168}
 
-function markerClicked(e) {
-  console.log(e);
-  console.log(e.latLng.lat(), e.latLng.lng());
-}
-
-function geolocate() {
-  // Try HTML5 geolocation.
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(position) {
-      var pos = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
-
-      infoWindow.setPosition(pos);
-      infoWindow.setContent('Location found.');
-      infoWindow.open(map);
-      map.setCenter(pos);
-    }, function() {
-      handleLocationError(true, infoWindow, map.getCenter());
-    });
-  }
+function clearMarkers() {
+  savedLocations.forEach(function(location) {
+    location.marker.setMap(null);
+  });
 }
 
 function calculateDirections() {
@@ -48,12 +30,12 @@ function calculateDirections() {
     avoidFerries: true
   };
 
-  console.log(directionsRequest)
-
   directionsService.route(directionsRequest, function(result, status) {
-    console.log(result)
     if (status == 'OK') {
+      clearMarkers();
       directionsDisplay.setDirections(result);
+    } else {
+      alert('Error getting directions: ' + status);
     }
   });
 
@@ -75,8 +57,6 @@ function init() {
   } catch(error) {
     savedLocations = [];
   }
-
-  console.log(savedLocations);
 
   var latlngbounds = new google.maps.LatLngBounds();
 
