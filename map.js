@@ -3,6 +3,7 @@ var savedLocations;
 
 var directionsService;
 var directionsDisplay;
+var geoMarker;
 
 var bounds = new google.maps.LatLngBounds({lat: 38.6663272841066, lng: -77.69550512656093}, {lat: 39.13976204677378, lng: -76.43207739218593})
 var startPoint = {lat: 38.903178, lng: -77.066168}
@@ -38,8 +39,39 @@ function calculateDirections() {
       alert('Error getting directions: ' + status);
     }
   });
-
 }
+
+function buildGoToCurrentLocationControl(controlDiv, map) {
+        // Set CSS for the control border.
+        var controlUI = document.createElement('div');
+        controlUI.style.backgroundColor = '#fff';
+        controlUI.style.border = '2px solid #fff';
+        controlUI.style.borderRadius = '3px';
+        controlUI.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
+        controlUI.style.cursor = 'pointer';
+        controlUI.style.marginLeft = '10px';
+        controlUI.style.textAlign = 'center';
+        controlUI.title = 'Go To Currrent Location';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior.
+        var controlText = document.createElement('div');
+        controlText.style.color = 'rgb(25,25,25)';
+        controlText.style.fontFamily = 'Roboto,Arial,sans-serif';
+        controlText.style.fontSize = '16px';
+        controlText.style.lineHeight = '38px';
+        controlText.style.paddingLeft = '5px';
+        controlText.style.paddingRight = '5px';
+        controlText.innerHTML = 'Go To';
+        controlUI.appendChild(controlText);
+
+        // Setup the click event listeners: simply set the map to Chicago.
+        controlUI.addEventListener('click', function() {
+          map.setCenter(geoMarker.getPosition());
+          map.setZoom(18);
+        });
+
+      }
 
 function init() {
   map = new google.maps.Map(document.getElementById('map'), {zoom: 16, center: startPoint});
@@ -48,7 +80,12 @@ function init() {
   directionsDisplay.setMap(map);
   directionsDisplay.setPanel(document.getElementById('directionsPanel'));
 
-  var GeoMarker = new GeolocationMarker(map);
+  geoMarker = new GeolocationMarker(map);
+
+  var controlDiv = document.createElement('div');
+  buildGoToCurrentLocationControl(controlDiv, map);
+  controlDiv.index = 1;
+  map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(controlDiv);
 
   var savedLocationsString = window.localStorage.getItem('savedLocations') || '[]';
 
